@@ -17,6 +17,8 @@
 #include <octomap_utils/octomap_mockups.hpp>
 #include <octomap_utils/octomap_visualization.hpp>
 
+#include <std_srvs/srv/trigger.hpp>
+
 using namespace std::chrono_literals;
 
 class AstarPlannerNode : public rclcpp::Node {
@@ -52,7 +54,7 @@ rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr _pub_localPath;
 std::string _topic_localPath = "astar_planner_node/out/localPath";
 nav_msgs::msg::Path localPath;
 
-
+rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr plan_path_service_;
 
 public:
     AstarPlannerNode() : Node("astar_planner_node") {
@@ -75,6 +77,10 @@ public:
         this->_sub_octomap_ = this->create_subscription<octomap_msgs::msg::Octomap>(
             this->_topicIn_octomap, 10,
             std::bind(&AstarPlannerNode::octomap_callback, this, std::placeholders::_1));
+
+        plan_path_service_ = this->create_service<std_srvs::srv::Trigger>(
+            "plan_path",
+            std::bind(&AstarPlannerNode::plan_path_service_callback, this, std::placeholders::_1, std::placeholders::_2));
     
     }
 
@@ -121,7 +127,10 @@ public:
     void _subCallback_update_goalPoint(geometry_msgs::msg::Pose::SharedPtr _msg_pose3d_goal_) {
         
         RCLCPP_INFO_STREAM(this->get_logger(), "[Begin] _subCallback_update_goalPoint");
+<<<<<<< HEAD
 
+=======
+>>>>>>> 0e00105 (initial deployment of Spot commit)
         // TODO: Declare conversion operator
         this->point3d_goal = octomap::point3d(_msg_pose3d_goal_->position.x, _msg_pose3d_goal_->position.y, _msg_pose3d_goal_->position.z);
 
@@ -272,11 +281,21 @@ public:
         
     }
 
-    
-
-
 private:
-
+        // Service callback for path planning
+    void plan_path_service_callback(const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+                                    std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+        RCLCPP_INFO(this->get_logger(), "Received request to plan path");
+        try {
+            plan_path();
+            response->success = true;
+            response->message = "Path planning completed successfully.";
+        } catch (const std::exception &e) {
+            response->success = false;
+            response->message = e.what();
+        }
+    }
+    
     // Execute planing
     void plan_path() {
 
@@ -293,7 +312,7 @@ private:
         octomap::point3d pos_cmd(0.0, 0.0, 0.0);
 
         // Planer initialisieren
-        double safe_obstacle_distance = 0.0;
+        double safe_obstacle_distance = .08;
         double euclidean_distance_cutoff = 1.0;
         // double planning_tree_resolution = 0.1;
         double planning_tree_resolution = this->octree_->getResolution();
@@ -344,7 +363,7 @@ private:
         this->publishGoalMarker(start_coord, "map", 987654, visualization_msgs::msg::Marker::SPHERE);
         this->publishGoalMarker(goal_coord, "map", 987655, visualization_msgs::msg::Marker::CUBE);
 
-
+        //path = create_optimizedLineStringInterpolation_keep(path, 0.05);
         auto _msg_localPath = octomap_utils::create_pathMsg_from_points3d(path);
         this->_pub_localPath->publish(_msg_localPath);
         
@@ -361,6 +380,52 @@ private:
         }
 
     } // [Member] plan_path
+
+
+    std::vector<octomap::point3d> create_optimizedLineStringInterpolation_keep(const std::vector<octomap::point3d>& points3d_for_optimation, const double& dist_to_linestring) {
+        if (points3d_for_optimation.size() <= 2) {
+            return points3d_for_optimation;  // If there are 2 or fewer points, return them as-is.
+        }
+
+        std::vector<octomap::point3d> result;
+        // Füge den ersten und den letzten Punkt hinzu.
+        result.push_back(points3d_for_optimation[0]);
+        result.push_back(points3d_for_optimation[1]);
+
+        std::vector<octomap::point3d> currSegment(2);
+
+        for (auto idx_currPoint3d = 2ul; idx_currPoint3d < points3d_for_optimation.size(); idx_currPoint3d++) {
+            // Create current Segment
+            currSegment[0] = points3d_for_optimation[idx_currPoint3d - 2];
+            currSegment[1] = points3d_for_optimation[idx_currPoint3d];
+
+            // Check if point before now lays on the same line with offset 0
+            if (std::abs(signedDistance(currSegment, points3d_for_optimation[idx_currPoint3d - 1])) <= std::abs(dist_to_linestring)) {
+                // Remove Point before and add new Point
+                result.pop_back();
+            }
+
+            result.push_back(points3d_for_optimation[idx_currPoint3d]);
+        }
+
+        return result;
+    }
+
+    // Berechnet den signierten Abstand zwischen einem Punkt und einer Linie, die durch zwei Punkte definiert ist.
+    double signedDistance(const std::vector<octomath::Vector3>& segment, const octomath::Vector3& point) {
+        octomap::point3d a = segment[0];
+        octomap::point3d b = segment[1];
+        octomap::point3d ab = b - a;
+        octomap::point3d ap = point - a;
+
+        double ab_length = ab.norm();
+        octomap::point3d ab_normalized = ab * (1.0 / ab_length);
+        double projection_length = ap.dot(ab_normalized);
+        octomap::point3d projection = a + ab_normalized * projection_length;
+
+        octomap::point3d distance_vector = point - projection;
+        return distance_vector.norm();
+    }
 
 };
 

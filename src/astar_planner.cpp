@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <chrono>
 #include <octomap_astar_ros/astar_planner.hpp>
+#include <memory>
 
 namespace navigation
 {
@@ -326,8 +327,11 @@ double AstarPlanner::distEuclidean(const octomap::OcTreeKey &k1, const octomap::
 
 bool AstarPlanner::freeStraightPath(const octomap::point3d p1, const octomap::point3d p2, octomap::OcTree &tree) {
 
+  //auto edf = euclideanDistanceTransform(tree);
+  auto edf = euclideanDistanceTransform(std::make_shared<octomap::OcTree>(tree));
   octomap::KeyRay ray;
   tree.computeRayKeys(p1, p2, ray);
+  double inflation_radius = std::sqrt(std::pow(0.25 / 2.0, 2) + std::pow(0.25 / 2.0, 2) + std::pow(0.5 / 2.0, 2));
 
   for (auto &k : ray) {
 

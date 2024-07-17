@@ -28,6 +28,10 @@ find_package(octomap_utils)
 
 include_directories(
   include
+<<<<<<< HEAD
+=======
+  ${std_srvs_INCLUDE_DIRS}
+>>>>>>> 0e00105 (initial deployment of Spot commit)
   ${rclcpp_INCLUDE_DIRS}
   ${OCTOMAP_INCLUDE_DIRS}
   ${DYNAMICEDT3D_INCLUDE_DIRS}
@@ -109,7 +113,11 @@ add_executable(AstarPlannerNode
   src/astar_planner.cpp)
 
 # Verknüpfen Sie die erforderlichen Bibliotheken
+<<<<<<< HEAD
 ament_target_dependencies(AstarPlannerNode rclcpp std_msgs sensor_msgs octomap octomap_msgs visualization_msgs geometry_msgs nav_msgs tf2_ros octomap_utils)
+=======
+ament_target_dependencies(AstarPlannerNode rclcpp std_msgs std_srvs sensor_msgs octomap octomap_msgs visualization_msgs geometry_msgs nav_msgs tf2_ros octomap_utils)
+>>>>>>> 0e00105 (initial deployment of Spot commit)
 target_link_libraries(AstarPlannerNode ${DYNAMICEDT3D_LIBRARIES})
 
 # Installieren Sie die ausführbare Datei
