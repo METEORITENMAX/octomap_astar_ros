@@ -58,7 +58,7 @@ rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr plan_path_service_;
 
 public:
     AstarPlannerNode() : Node("astar_planner_node") {
-        
+
         octomap_pub_ = this->create_publisher<octomap_msgs::msg::Octomap>("astar/example/octomap", 10);
         path_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("astar/example/path", 10);
         octomap_viz_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("astar/example/octomapViz", 10);
@@ -81,7 +81,7 @@ public:
         plan_path_service_ = this->create_service<std_srvs::srv::Trigger>(
             "plan_path",
             std::bind(&AstarPlannerNode::plan_path_service_callback, this, std::placeholders::_1, std::placeholders::_2));
-    
+
     }
 
 
@@ -107,7 +107,7 @@ public:
         }
 
         this->octree_ = std::make_shared<octomap::OcTree>(*octree_ptr);
-        
+
         delete octree_ptr;
 
     }
@@ -125,15 +125,10 @@ public:
 
 
     void _subCallback_update_goalPoint(geometry_msgs::msg::Pose::SharedPtr _msg_pose3d_goal_) {
-        
         RCLCPP_INFO_STREAM(this->get_logger(), "[Begin] _subCallback_update_goalPoint");
-<<<<<<< HEAD
 
-=======
->>>>>>> 0e00105 (initial deployment of Spot commit)
         // TODO: Declare conversion operator
         this->point3d_goal = octomap::point3d(_msg_pose3d_goal_->position.x, _msg_pose3d_goal_->position.y, _msg_pose3d_goal_->position.z);
-
     }
 
 
@@ -148,40 +143,10 @@ public:
             pose1.orientation.w == pose2.orientation.w;
     }
 
-
-    // void _timerCallback_plan_path_on_posChange() {
-    //     if (( this->point3d_start == this->point3d_start_old ) && ( this->point3d_goal == this->point3d_goal_old )) {
-    //         RCLCPP_INFO_STREAM(this->get_logger(), "[_timerCallback_plan_path_on_posChange] NO positional changes detected");
-    //         return;
-    //     } else {
-    //         RCLCPP_INFO_STREAM(this->get_logger(), "[_timerCallback_plan_path_on_posChange] Positional changes detected. Replanning...");
-    //     }
-
-    //     auto future = plan_path_async();
-    //     rclcpp::spin_until_future_complete(shared_from_this(), future);
-        
-    //     if (future.get()) {
-    //         RCLCPP_INFO_STREAM(this->get_logger(), "[_timerCallback_plan_path_on_posChange] Path planning completed successfully.");
-    //     } else {
-    //         RCLCPP_ERROR_STREAM(this->get_logger(), "[_timerCallback_plan_path_on_posChange] Path planning failed.");
-    //     }
-
-    //     this->point3d_goal_old = this->point3d_goal;
-    //     this->point3d_start_old = this->point3d_start;
-    // }
-
-    // std::future<bool> plan_path_async() {
-    //     return std::async(std::launch::async, [this]() -> bool {
-
-    //         this->plan_path();
-
-    //         return true; // Return true if planning was successful
-    //     });
-    // }
-
     void _timerCallback_plan_path_on_posChange() {
-        if (( this->point3d_start == this->point3d_start_old ) && ( this->point3d_goal == this->point3d_goal_old )) {
-            RCLCPP_INFO_STREAM(this->get_logger(), "[_timerCallback_plan_path_on_posChange] NO positional changes detected");
+        //)
+        if (this->point3d_goal == this->point3d_goal_old && this->point3d_start == this->point3d_start_old) {
+            //RCLCPP_INFO_STREAM(this->get_logger(), "[_timerCallback_plan_path_on_posChange] NO positional changes detected");
             return;
         } else {
             RCLCPP_INFO_STREAM(this->get_logger(), "[_timerCallback_plan_path_on_posChange] Positional changes detected. Replanning...");
@@ -243,12 +208,12 @@ public:
 
     // TODO: Move to Visualization Header
     void visualizeExpansions(
-        const std::unordered_set<navigation::Node, navigation::HashFunction> & set_nodes_to_hash_1, 
+        const std::unordered_set<navigation::Node, navigation::HashFunction> & set_nodes_to_hash_1,
         const std::unordered_set<navigation::Node, navigation::HashFunction> & set_node_to_hash_2,
         const octomap::OcTree& octree) {
-        
+
         visualization_msgs::msg::MarkerArray marker_array;
-        
+
         size_t i = 0;
         for (auto it_map = set_nodes_to_hash_1.begin(); it_map != set_nodes_to_hash_1.end(); it_map++) {
 
@@ -278,7 +243,7 @@ public:
         }
 
         this->path_pub_->publish(marker_array);
-        
+
     }
 
 private:
@@ -295,7 +260,7 @@ private:
             response->message = e.what();
         }
     }
-    
+
     // Execute planing
     void plan_path() {
 
@@ -307,12 +272,12 @@ private:
         // Start- und Zielkoordinaten festlegen
         octomap::point3d start_coord = this->point3d_start;
         octomap::point3d goal_coord = this->point3d_goal;
-        
+
 
         octomap::point3d pos_cmd(0.0, 0.0, 0.0);
 
         // Planer initialisieren
-        double safe_obstacle_distance = .08;
+        double safe_obstacle_distance = .0;
         double euclidean_distance_cutoff = 1.0;
         // double planning_tree_resolution = 0.1;
         double planning_tree_resolution = this->octree_->getResolution();
@@ -345,18 +310,20 @@ private:
         tree->getMetricMax(max_x, max_y, max_z);
 
 
-        RCLCPP_INFO_STREAM(this->get_logger(), "OctoMap-Dimension-Metric; Min: " << min_x << " " << min_y << " " << min_z << " ; Max: " << max_x << " " << max_y << " " << max_z);
+        // RCLCPP_INFO_STREAM(this->get_logger(), "OctoMap-Dimension-Metric; Min: " << min_x << " " << min_y << " " << min_z << " ; Max: " << max_x << " " << max_y << " " << max_z);
 
 
         navigation::AstarPlanner planner(safe_obstacle_distance, euclidean_distance_cutoff, planning_tree_resolution, distance_penalty, greedy_penalty,
                                         min_altitude, max_altitude, planning_timeout, max_waypoint_distance, unknown_is_occupied);
 
-
+        auto start_find_path = std::chrono::high_resolution_clock::now();
         // Pfad finden
         auto [path, result] = planner.findPath(start_coord, goal_coord, pos_cmd, tree, planning_timeout,
                                             std::bind(&AstarPlannerNode::visualizeTree, this, std::placeholders::_1),
                                             std::bind(&AstarPlannerNode::visualizeExpansions, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
+        RCLCPP_INFO(rclcpp::get_logger("Astar"), "findPath took %.2f s",
+                    std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_find_path).count());
 
 
         // TODO: Generate random id by using the time
@@ -366,7 +333,7 @@ private:
         //path = create_optimizedLineStringInterpolation_keep(path, 0.05);
         auto _msg_localPath = octomap_utils::create_pathMsg_from_points3d(path);
         this->_pub_localPath->publish(_msg_localPath);
-        
+
 
         // Ergebnis überprüfen
         if (result == navigation::PlanningResult::COMPLETE) {

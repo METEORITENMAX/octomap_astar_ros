@@ -83,7 +83,12 @@ public:
       std::function<void(const std::unordered_set<Node, HashFunction> &, const std::unordered_set<Node, HashFunction> &, const octomap::OcTree &)>
           visualizeExpansions);
 
-private:
+  void inflateWalls(octomap::OcTree& tree, double inflation_radius);
+  void inflateFloor(octomap::OcTree &tree, double inflation_radius_floor);
+  void close_holes(octomap::OcTree &tree);
+  bool isPartOfWall(octomap::OcTree &tree, const octomap::OcTreeKey &key);
+
+  private:
   const std::vector<std::vector<int>> EXPANSION_DIRECTIONS = {{-1, -1, -1}, {-1, -1, 0}, {-1, -1, 1}, {-1, 0, -1}, {-1, 0, 0}, {-1, 0, 1}, {-1, 1, -1},
                                                               {-1, 1, 0},   {-1, 1, 1},  {0, -1, -1}, {0, -1, 0},  {0, -1, 1}, {0, 0, -1}, {0, 0, 1},
                                                               {0, 1, -1},   {0, 1, 0},   {0, 1, 1},   {1, -1, -1}, {1, -1, 0}, {1, -1, 1}, {1, 0, -1},

@@ -2,6 +2,9 @@
 #include <chrono>
 #include <octomap_astar_ros/astar_planner.hpp>
 #include <memory>
+#include <set>
+#include <octomap/OcTree.h>
+
 
 namespace navigation
 {
@@ -69,6 +72,122 @@ AstarPlanner::AstarPlanner(double safe_obstacle_distance, double euclidean_dista
 //}
 
 /* findPath //{ */
+struct OcTreeKeyComparator {
+    bool operator()(const octomap::OcTreeKey& lhs, const octomap::OcTreeKey& rhs) const {
+        if (lhs.k[0] != rhs.k[0]) return lhs.k[0] < rhs.k[0];
+        if (lhs.k[1] != rhs.k[1]) return lhs.k[1] < rhs.k[1];
+        return lhs.k[2] < rhs.k[2];
+    }
+};
+
+bool AstarPlanner::isPartOfWall(octomap::OcTree& tree, const octomap::OcTreeKey& key) {
+    int count = 0;
+    for (int dz = -3; dz <= 3; ++dz) {
+        octomap::OcTreeKey neighborKey = key;
+        neighborKey.k[2] += dz;
+        if (tree.search(neighborKey) && tree.isNodeOccupied(tree.search(neighborKey))) {
+            count++;
+            if (count >= 4) {
+                return true;
+            }
+        } else {
+            count = 0;
+        }
+    }
+    return false;
+}
+
+void AstarPlanner::inflateWalls(octomap::OcTree& tree, double inflation_radius) {
+    std::set<octomap::OcTreeKey, OcTreeKeyComparator> wallNodes;
+
+    // Identify wall nodes
+    for (auto it = tree.begin_leafs(); it != tree.end_leafs(); ++it) {
+        if (tree.isNodeOccupied(*it)) {
+            octomap::OcTreeKey key = it.getKey();
+            if (isPartOfWall(tree, key)) {
+              wallNodes.insert(key);
+            }
+        }
+    }
+
+    // Inflate only wall nodes
+    for (const auto& key : wallNodes) {
+        octomap::point3d coord = tree.keyToCoord(key);
+        for (double dx = -inflation_radius; dx <= inflation_radius; dx += tree.getResolution()) {
+            for (double dy = -inflation_radius; dy <= inflation_radius; dy += tree.getResolution()) {
+                for (double dz = -inflation_radius; dz <= inflation_radius; dz += tree.getResolution()) {
+                    octomap::point3d inflated_coord = coord + octomap::point3d(dx, dy, dz);
+                    tree.updateNode(inflated_coord, true); // Mark as occupied
+                }
+            }
+        }
+    }
+}
+
+void AstarPlanner::close_holes(octomap::OcTree& tree) {
+    std::vector<octomap::OcTreeKey> freeNodes;
+
+    // Identify free nodes
+    for (auto it = tree.begin_leafs(); it != tree.end_leafs(); ++it) {
+        if (!tree.isNodeOccupied(*it)) {
+            freeNodes.push_back(it.getKey());
+        }
+    }
+
+    // Check the next 5 nodes on top for each free node
+    for (const auto& key : freeNodes) {
+        bool shouldMarkOccupied = false;
+        for (int i = 1; i <= 10; ++i) {
+            octomap::OcTreeKey topKey = key;
+            topKey.k[2] += i; // Move up in the z-direction
+
+            octomap::OcTreeNode* node = tree.search(topKey);
+            if (node && tree.isNodeOccupied(node)) {
+                shouldMarkOccupied = true;
+                break;
+            }
+        }
+
+        if (shouldMarkOccupied) {
+            octomap::point3d coord = tree.keyToCoord(key);
+            tree.updateNode(coord, true); // Mark as occupied
+        }
+    }
+}
+
+void AstarPlanner::inflateFloor(octomap::OcTree& tree, double inflation_radius_floor) {
+    std::set<octomap::OcTreeKey, OcTreeKeyComparator> freeNodes;
+
+    // Identify free nodes
+    for (auto it = tree.begin_leafs(); it != tree.end_leafs(); ++it) {
+        if (!tree.isNodeOccupied(*it)) {
+            freeNodes.insert(it.getKey());
+        }
+    }
+
+    // Check neighbors and set them to free if the condition is met
+    for (const auto& key : freeNodes) {
+        std::vector<octomap::OcTreeKey> directions = {
+            {key.k[0] + 1, key.k[1], key.k[2]}, // right
+            {key.k[0] - 1, key.k[1], key.k[2]}, // left
+            {key.k[0], key.k[1] + 1, key.k[2]}, // front
+            {key.k[0], key.k[1] - 1, key.k[2]}  // back
+        };
+
+        for (const auto& direction : directions) {
+            if (tree.search(direction) == nullptr) { // Check if node is neither free nor occupied
+                octomap::OcTreeKey currentKey = direction;
+                int steps = 0;
+                while (tree.search(currentKey) == nullptr && steps < 10) { // Traverse until an occupied or free node is found or limit is reached
+                    tree.updateNode(tree.keyToCoord(currentKey), false); // Mark as free
+                    currentKey.k[0] += (direction.k[0] - key.k[0]);
+                    currentKey.k[1] += (direction.k[1] - key.k[1]);
+                    steps++;
+                }
+            }
+        }
+    }
+}
 
 std::pair<std::vector<octomap::point3d>, PlanningResult> AstarPlanner::findPath(
     const octomap::point3d &start_coord, const octomap::point3d &goal_coord, const octomap::point3d &pos_cmd, std::shared_ptr<octomap::OcTree> mapping_tree,
@@ -83,17 +202,47 @@ std::pair<std::vector<octomap::point3d>, PlanningResult> AstarPlanner::findPath(
 
   this->timeout_threshold = timeout;
 
+// Measure time for inflateWalls
+auto start_inflateWalls = std::chrono::high_resolution_clock::now();
+inflateWalls(*mapping_tree, .4);
+auto end_inflateWalls = std::chrono::high_resolution_clock::now();
+RCLCPP_INFO(rclcpp::get_logger("Astar"), "inflateWalls took %.2f s",
+            std::chrono::duration<double>(end_inflateWalls - start_inflateWalls).count());
+
+// Measure time for inflateFloor
+auto start_inflateFloor = std::chrono::high_resolution_clock::now();
+inflateFloor(*mapping_tree, 0.35);
+auto end_inflateFloor = std::chrono::high_resolution_clock::now();
+RCLCPP_INFO(rclcpp::get_logger("Astar"), "inflateFloor took %.2f s",
+            std::chrono::duration<double>(end_inflateFloor - start_inflateFloor).count());
+
+// Measure time for close_holes
+auto start_close_holes = std::chrono::high_resolution_clock::now();
+close_holes(*mapping_tree);
+auto end_close_holes = std::chrono::high_resolution_clock::now();
+RCLCPP_INFO(rclcpp::get_logger("Astar"), "close_holes took %.2f s",
+            std::chrono::duration<double>(end_close_holes - start_close_holes).count());
   auto time_start_planning_tree = std::chrono::high_resolution_clock::now();
   auto tree_with_tunnel         = createPlanningTree(mapping_tree, start_coord, planning_tree_resolution);
-  printf("[Astar]: the planning tree took %.2f s to create\n",
-         std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - time_start_planning_tree).count());
+  // printf("[Astar]: the planning tree took %.2f s to create\n",
+  //        std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - time_start_planning_tree).count());
+
+
+  RCLCPP_INFO(rclcpp::get_logger("Astar"), "The planning tree took %.2f s to create, mapping tree size: %zu",
+              std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - time_start_planning_tree).count(),
+              mapping_tree->size());
 
   if (!tree_with_tunnel) {
-    printf("[Astar]: could not create a planning tree\n");
+    RCLCPP_ERROR(rclcpp::get_logger("Astar"), "Could not create a planning tree");
     return {std::vector<octomap::point3d>(), FAILURE};
   }
 
+  auto time_start_visualize = std::chrono::high_resolution_clock::now();
+
   visualizeTree((*tree_with_tunnel).first);
+
+  RCLCPP_INFO(rclcpp::get_logger("Astar"), "The visualization took %.2f s",
+            std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - time_start_visualize).count());
 
   auto tree   = tree_with_tunnel.value().first;
   auto tunnel = tree_with_tunnel.value().second;
@@ -543,7 +692,7 @@ std::pair<octomap::point3d, bool> AstarPlanner::generateTemporaryGoal(const octo
     temp_goal.x() = start.x();
     temp_goal.y() = start.y();
     // temp_goal.z() = goal.z();  // scan new layers of octomap if needed
-    
+
     double extra_motion = goal.z() - start.z();
     extra_motion        = (extra_motion / std::abs(extra_motion)) * planning_tree_resolution;
 
