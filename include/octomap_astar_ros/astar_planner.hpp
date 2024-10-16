@@ -36,6 +36,7 @@ struct Node
   double             total_cost;
   double             cum_dist;
   double             goal_dist;
+  bool               has_collision;
 
   bool operator==(const Node &other) const;
   bool operator!=(const Node &other) const;
@@ -56,6 +57,12 @@ struct LeafComparator
 struct HashFunction
 {
   bool operator()(const Node &n) const;
+};
+
+struct RobotDimensions {
+  double length;
+  double width;
+  double height;
 };
 
 class AstarPlanner {
@@ -79,25 +86,45 @@ private:
 public:
   std::pair<std::vector<octomap::point3d>, PlanningResult> findPath(
       const octomap::point3d &start_coord, const octomap::point3d &goal_coord, const octomap::point3d &pos_cmd, std::shared_ptr<octomap::OcTree> mapping_tree,
-      double timeout, std::function<void(const octomap::OcTree &)> visualizeTree,
+      double timeout, std::function<void(const octomap::OcTree &, std::vector<octomap::OcTreeKey>&)> visualizeTree,
       std::function<void(const std::unordered_set<Node, HashFunction> &, const std::unordered_set<Node, HashFunction> &, const octomap::OcTree &)>
           visualizeExpansions);
 
+  void fillWalls(octomap::OcTree& tree);
   void inflateWalls(octomap::OcTree& tree, double inflation_radius);
   void inflateFloor(octomap::OcTree &tree, double inflation_radius_floor);
   void close_holes(octomap::OcTree &tree);
   bool isPartOfWall(octomap::OcTree &tree, const octomap::OcTreeKey &key);
+  bool isCollisionFree(const octomap::OcTree &tree, const octomap::OcTreeKey &key, const RobotDimensions &robot_dims);
+
+  static octomap::OcTreeKey expand(const octomap::OcTreeKey &key, const std::vector<int> &direction);
+
+  const std::vector<std::vector<int>> OCTREE_NEIGHBORS = {
+      {-1, -1, -1}, {-1, -1, 1}, {-1, 1, -1}, {-1, 1, 1},
+      {1, -1, -1},  {1, -1, 1},  {1, 1, -1},  {1, 1, 1}
+    };
 
   private:
-  const std::vector<std::vector<int>> EXPANSION_DIRECTIONS = {{-1, -1, -1}, {-1, -1, 0}, {-1, -1, 1}, {-1, 0, -1}, {-1, 0, 0}, {-1, 0, 1}, {-1, 1, -1},
-                                                              {-1, 1, 0},   {-1, 1, 1},  {0, -1, -1}, {0, -1, 0},  {0, -1, 1}, {0, 0, -1}, {0, 0, 1},
-                                                              {0, 1, -1},   {0, 1, 0},   {0, 1, 1},   {1, -1, -1}, {1, -1, 0}, {1, -1, 1}, {1, 0, -1},
-                                                              {1, 0, 0},    {1, 0, 1},   {1, 1, -1},  {1, 1, 0},   {1, 1, 1}};
+  const std::vector<std::vector<int>> EXPANSION_DIRECTIONS = {
+    {-1, -1, -1}, {-1, -1, 0}, {-1, -1, 1}, {-1, 0, -1}, {-1, 0, 0}, {-1, 0, 1}, {-1, 1, -1},
+    {-1, 1, 0},   {-1, 1, 1},  {0, -1, -1}, {0, -1, 0},  {0, -1, 1}, {0, 0, -1}, {0, 0, 1},
+    {0, 1, -1},   {0, 1, 0},   {0, 1, 1},   {1, -1, -1}, {1, -1, 0}, {1, -1, 1}, {1, 0, -1},
+    {1, 0, 0},    {1, 0, 1},   {1, 1, -1},  {1, 1, 0},   {1, 1, 1}
+  };
+
+  const std::vector<std::vector<int>> OCTREE_NEIGHBORS_NO_NEG_Z = {
+    {-1, -1, 0}, {-1, -1, 1}, {-1, 1, 0}, {-1, 1, 1},
+    {1, -1, 0},  {1, -1, 1},  {1, 1, 0},  {1, 1, 1}
+  };
+
+
+
   double                              getNodeDepth(const octomap::OcTreeKey &key, octomap::OcTree &tree);
 
   std::vector<octomap::OcTreeKey> getNeighborhood(const octomap::OcTreeKey &key, octomap::OcTree &tree);
 
-  octomap::OcTreeKey expand(const octomap::OcTreeKey &key, const std::vector<int> &direction);
+  std::vector<octomap::OcTreeKey> getNeighbors(const octomap::OcTreeKey &key, const octomap::OcTree &tree, const RobotDimensions &robot_dims);
+  double calculateDistanceToOccupied(const octomap::OcTree &tree, const octomap::OcTreeKey &key);
 
   double distEuclidean(const octomap::point3d &p1, const octomap::point3d &p2);
 
