@@ -90,6 +90,8 @@ public:
       std::function<void(const std::unordered_set<Node, HashFunction> &, const std::unordered_set<Node, HashFunction> &, const octomap::OcTree &)>
           visualizeExpansions);
 
+  std::optional<std::pair<octomap::OcTree, std::vector<octomap::point3d>>> createPlanningTree(std::shared_ptr<octomap::OcTree> tree,
+                                                                                              const octomap::point3d &start, double resolution);
   void fillWalls(octomap::OcTree& tree);
   void inflateWalls(octomap::OcTree& tree, double inflation_radius);
   void inflateFloor(octomap::OcTree &tree, double inflation_radius_floor);
@@ -137,9 +139,6 @@ public:
   std::vector<octomap::point3d> keysToCoords(std::vector<octomap::OcTreeKey> keys, octomap::OcTree &tree);
 
   DynamicEDTOctomap euclideanDistanceTransform(std::shared_ptr<octomap::OcTree> tree);
-
-  std::optional<std::pair<octomap::OcTree, std::vector<octomap::point3d>>> createPlanningTree(std::shared_ptr<octomap::OcTree> tree,
-                                                                                              const octomap::point3d &start, double resolution);
 
   std::pair<octomap::point3d, bool> generateTemporaryGoal(const octomap::point3d &start, const octomap::point3d &goal, const octomap::point3d &pos_cmd, octomap::OcTree &tree);
 

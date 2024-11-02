@@ -286,6 +286,8 @@ std::pair<std::vector<octomap::point3d>, PlanningResult> AstarPlanner::findPath(
       std::vector<octomap::point3d> vertical_path;
       vertical_path.push_back(start_coord);
       vertical_path.push_back(temp_goal.first);
+      //visualizeExpansions(open, closed, tree);
+      visualizeTree((*tree_with_tunnel).first, collision_nodes);
       return {vertical_path, INCOMPLETE};
     } else {
       map_goal      = temp_goal.first;
@@ -318,7 +320,7 @@ std::pair<std::vector<octomap::point3d>, PlanningResult> AstarPlanner::findPath(
 
     printf("[Astar]: Path special case, we are there\n");
 
-    visualizeExpansions(open, closed, tree);
+    //visualizeExpansions(open, closed, tree);
     visualizeTree((*tree_with_tunnel).first, collision_nodes);
     return {std::vector<octomap::point3d>(), GOAL_REACHED};
   }
@@ -356,7 +358,7 @@ std::pair<std::vector<octomap::point3d>, PlanningResult> AstarPlanner::findPath(
       auto path_keys = backtrackPathKeys(best_node == first ? best_node_greedy : best_node, first, parent_map);
       printf("[Astar]: Path found. Length: %ld\n", path_keys.size());
 
-      visualizeExpansions(open, closed, tree);
+      //visualizeExpansions(open, closed, tree);
       visualizeTree((*tree_with_tunnel).first, collision_nodes);
       return {prepareOutputPath(path_keys, tree), INCOMPLETE};
     }
@@ -369,8 +371,7 @@ std::pair<std::vector<octomap::point3d>, PlanningResult> AstarPlanner::findPath(
       path_keys.push_back(tree.coordToKey(map_goal));
       printf("[Astar]: Path found. Length: %ld\n", path_keys.size());
 
-      visualizeExpansions(open, closed, tree);
-      //std::set<octomap::OcTreeKey> compatible_collision_nodes(collision_nodes.begin(), collision_nodes.end());
+      //visualizeExpansions(open, closed, tree);
       visualizeTree((*tree_with_tunnel).first, collision_nodes);
       if (original_goal) {
         return {prepareOutputPath(path_keys, tree), COMPLETE};
@@ -416,7 +417,7 @@ std::pair<std::vector<octomap::point3d>, PlanningResult> AstarPlanner::findPath(
     }
   }
 
-  visualizeExpansions(open, closed, tree);
+  //visualizeExpansions(open, closed, tree);
 
   if (best_node != first) {
 
@@ -441,6 +442,8 @@ std::pair<std::vector<octomap::point3d>, PlanningResult> AstarPlanner::findPath(
     path_to_safety.push_back(start_coord);
     path_to_safety.push_back(tunnel.back());
     printf("[Astar]: path does not exist, escaping no-go zone'\n");
+    //visualizeExpansions(open, closed, tree);
+    visualizeTree((*tree_with_tunnel).first, collision_nodes);
     return {path_to_safety, INCOMPLETE};
   }
   visualizeTree((*tree_with_tunnel).first, collision_nodes);

@@ -91,8 +91,6 @@ rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr update_pose_start_pub_;
 std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
 std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-
-
     // Declare the parameters
     double safe_obstacle_distance;
     double euclidean_distance_cutoff;
@@ -106,22 +104,22 @@ std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     bool unknown_is_occupied;
 
     // Add the planner as a member variable
-    //navigation::AstarPlanner planner;
-
+    navigation::AstarPlanner planner;
 public:
-    AstarPlannerNode() : Node("astar_planner_node") {
-    //   safe_obstacle_distance(0.5),
-    //   euclidean_distance_cutoff(1.0),
-    //   planning_tree_resolution(0.1),
-    //   distance_penalty(1.0),
-    //   greedy_penalty(1.0),
-    //   min_altitude(0.0),
-    //   max_altitude(2.0),
-    //   planning_timeout(5.0),
-    //   max_waypoint_distance(1.0),
-    //   unknown_is_occupied(true),
-    //   planner(safe_obstacle_distance, euclidean_distance_cutoff, planning_tree_resolution, distance_penalty, greedy_penalty,
-    //           min_altitude, max_altitude, planning_timeout, max_waypoint_distance, unknown_is_occupied) {
+    AstarPlannerNode()
+    : Node("astar_planner_node"),
+      safe_obstacle_distance(0.0),
+      euclidean_distance_cutoff(2.0),
+      planning_tree_resolution(0.05),
+      distance_penalty(1.0),
+      greedy_penalty(1.0),
+      min_altitude(-1000.0),
+      max_altitude(1000.0),
+      planning_timeout(5000.0),
+      max_waypoint_distance(10.),
+      unknown_is_occupied(false),
+      planner(safe_obstacle_distance, euclidean_distance_cutoff, planning_tree_resolution, distance_penalty, greedy_penalty,
+              min_altitude, max_altitude, planning_timeout, max_waypoint_distance, unknown_is_occupied) {
 
         void countFreeNodesInOctree();
 
@@ -162,33 +160,33 @@ public:
         update_pose_start_pub_ = this->create_publisher<geometry_msgs::msg::Pose>("/update_marker_pose/start", 10);
 
 
-        // // Initialize the parameters
-        // this->declare_parameter("safe_obstacle_distance", 0.5);
-        // this->declare_parameter("euclidean_distance_cutoff", 1.0);
-        // this->declare_parameter("planning_tree_resolution", 0.1);
-        // this->declare_parameter("distance_penalty", 1.0);
-        // this->declare_parameter("greedy_penalty", 1.0);
-        // this->declare_parameter("min_altitude", 0.0);
-        // this->declare_parameter("max_altitude", 2.0);
-        // this->declare_parameter("planning_timeout", 5.0);
-        // this->declare_parameter("max_waypoint_distance", 1.0);
-        // this->declare_parameter("unknown_is_occupied", true);
+        // Initialize the parameters
+        this->declare_parameter("safe_obstacle_distance", 0.0);
+        this->declare_parameter("euclidean_distance_cutoff", 1.0);
+        this->declare_parameter("planning_tree_resolution", 0.05);
+        this->declare_parameter("distance_penalty", 1.0);
+        this->declare_parameter("greedy_penalty", 1.0);
+        this->declare_parameter("min_altitude", -1000.0);
+        this->declare_parameter("max_altitude", 1000.0);
+        this->declare_parameter("planning_timeout", 5000.0);
+        this->declare_parameter("max_waypoint_distance", 1.0);
+        this->declare_parameter("unknown_is_occupied", true);
 
-        // // Get the parameters
-        // this->get_parameter("safe_obstacle_distance", safe_obstacle_distance);
-        // this->get_parameter("euclidean_distance_cutoff", euclidean_distance_cutoff);
-        // this->get_parameter("planning_tree_resolution", planning_tree_resolution);
-        // this->get_parameter("distance_penalty", distance_penalty);
-        // this->get_parameter("greedy_penalty", greedy_penalty);
-        // this->get_parameter("min_altitude", min_altitude);
-        // this->get_parameter("max_altitude", max_altitude);
-        // this->get_parameter("planning_timeout", planning_timeout);
-        // this->get_parameter("max_waypoint_distance", max_waypoint_distance);
-        // this->get_parameter("unknown_is_occupied", unknown_is_occupied);
+        // Get the parameters
+        this->get_parameter("safe_obstacle_distance", safe_obstacle_distance);
+        this->get_parameter("euclidean_distance_cutoff", euclidean_distance_cutoff);
+        this->get_parameter("planning_tree_resolution", planning_tree_resolution);
+        this->get_parameter("distance_penalty", distance_penalty);
+        this->get_parameter("greedy_penalty", greedy_penalty);
+        this->get_parameter("min_altitude", min_altitude);
+        this->get_parameter("max_altitude", max_altitude);
+        this->get_parameter("planning_timeout", planning_timeout);
+        this->get_parameter("max_waypoint_distance", max_waypoint_distance);
+        this->get_parameter("unknown_is_occupied", unknown_is_occupied);
 
         // Initialize the planner
-        //planner = navigation::AstarPlanner(safe_obstacle_distance, euclidean_distance_cutoff, planning_tree_resolution, distance_penalty, greedy_penalty,
-         //                              min_altitude, max_altitude, planning_timeout, max_waypoint_distance, unknown_is_occupied);
+        // planner = navigation::AstarPlanner(safe_obstacle_distance, euclidean_distance_cutoff, planning_tree_resolution, distance_penalty, greedy_penalty,
+        //                               min_altitude, max_altitude, planning_timeout, max_waypoint_distance, unknown_is_occupied);
 
     }
 
@@ -215,6 +213,18 @@ public:
         }
 
         this->octree_ = std::make_shared<octomap::OcTree>(*octree_ptr);
+        // auto tree_tmp = this->octree_;
+        // double min_x, min_y, min_z;
+        // double max_x, max_y, max_z;
+        // // Optional: Stellen Sie sicher, dass alle Nodes auf der kleinsten Auflösungsebene sind
+        // tree_tmp->updateInnerOccupancy();
+
+        // tree_tmp->getMetricMin(min_x, min_y, min_z);
+        // tree_tmp->getMetricMax(max_x, max_y, max_z);
+        // auto tree_with_tunnel = planner.createPlanningTree(tree_tmp, octomap::point3d(min_x, min_y, min_z), this->planning_tree_resolution);
+        // std::vector<octomap::OcTreeKey> empty_collision_vector;
+        // // visualise the tree with empty collision vector
+        // visualizeTree((*tree_with_tunnel).first, empty_collision_vector);
 
         delete octree_ptr;
 
@@ -321,6 +331,54 @@ geometry_msgs::msg::Pose find_closet_node (octomap::point3d received_pose){
     }
 }
 
+void delete_nodes_at_pose(geometry_msgs::msg::Pose pose, float radius = 0.7, float height = .25){
+
+    RCLCPP_INFO(this->get_logger(), "delete node around pose.");
+    if (!this->octree_)
+    {
+        RCLCPP_ERROR(this->get_logger(), "Octree is not initialized.");
+        return;
+    }
+    auto tree = this->octree_;
+    octomap::point3d center_point(pose.position.x, pose.position.y, pose.position.z);
+    octomap::OcTreeKey center_key = tree->coordToKey(center_point);
+
+    tf2::Quaternion q(
+        pose.orientation.x,
+        pose.orientation.y,
+        pose.orientation.z,
+        pose.orientation.w
+    );
+
+    tf2::Matrix3x3 rotation_matrix(q);
+
+    for (double dx = -radius; dx <= radius; dx += tree->getResolution())
+    {
+        for (double dy = -radius; dy <= radius; dy += tree->getResolution())
+        {
+            for (double dz = -height; dz <= height; dz += tree->getResolution())
+            {
+                // Calculate the position of the current point relative to the center
+                tf2::Vector3 point_rel(dx, dy, dz);
+
+                // Rotate the point
+                tf2::Vector3 point_rot = rotation_matrix * point_rel;
+
+                // Translate the point back to the world frame
+                double x = pose.position.x + point_rot.x();
+                double y = pose.position.y + point_rot.y();
+                double z = pose.position.z + point_rot.z();
+
+                // Delete the corresponding node in the octree
+                octomap::point3d point(x, y, z);
+                tree->deleteNode(point);
+                //tree->updateNode(point, false);
+            }
+        }
+    }
+    this->octree_ = tree;
+
+}
 void fill_nodes_at_pose(geometry_msgs::msg::Pose pose)
 {
     if (!this->octree_)
@@ -336,30 +394,41 @@ void fill_nodes_at_pose(geometry_msgs::msg::Pose pose)
     double half_width = robot_dims.width / 2.0;
     double height = robot_dims.height;
 
+    tf2::Quaternion q(
+        pose.orientation.x,
+        pose.orientation.y,
+        pose.orientation.z,
+        pose.orientation.w
+    );
+    tf2::Matrix3x3 rotation_matrix(q);
     // Iterate over the volume defined by these bounds
-    double z_base_footprint = pose.position.z + 0.1; // The base of the robot is 0.15 m above the ground to match with the scan
+    double z_base_footprint = pose.position.z + 0.15; // The base of the robot is 0.15 m above the ground to match with the scan
     for (double dx = -half_length; dx <= half_length; dx += this->octree_->getResolution())
     {
         for (double dy = -half_width; dy <= half_width; dy += this->octree_->getResolution())
         {
             for (double dz = z_base_footprint; dz <= height; dz += this->octree_->getResolution())
             {
-                // Calculate the position of the current point
-                double x = pose.position.x + dx;
-                double y = pose.position.y + dy;
-                double z = dz;
+                // Calculate the position of the current point relative to the robot's center
+                tf2::Vector3 point_rel(dx, dy, dz - pose.position.z);
 
-                octomap::point3d point(x, y, z);
+                // Rotate the point
+                tf2::Vector3 point_rot = rotation_matrix * point_rel;
+                // Calculate the position of the current point
+                // Translate the point back to the world frame
+                double x = pose.position.x + point_rot.x();
+                double y = pose.position.y + point_rot.y();
+                double z = pose.position.z + point_rot.z();
                 //this->octree_->updateNode(point, false);
-                if (z <= z_base_footprint){
+                if (dz <= z_base_footprint){
                     // Mark the corresponding node in the octree as free
-                    octomap::point3d point(x, y, z_base_footprint);
+                    octomap::point3d point(x, y, z);
                     this->octree_->updateNode(point, false); // false means free
-                } else {
-                    // Mark the corresponding node in the octree as occupied
-                    octomap::point3d point_clear(x, y, z);
-                    this->octree_->deleteNode(point_clear); // true means occupied
-                }
+                }// else {
+                //     // Mark the corresponding node in the octree as occupied
+                //     octomap::point3d point_clear(x, y, z);
+                //     this->octree_->deleteNode(point_clear); // true means occupied
+                // }
 
             }
         }
@@ -371,13 +440,14 @@ void fill_nodes_at_pose(geometry_msgs::msg::Pose pose)
 geometry_msgs::msg::Pose get_start_pose()
 {
     auto end_time = this->get_clock()->now() + rclcpp::Duration::from_seconds(10.0);
-    geometry_msgs::msg::TransformStamped transform_stamped;
+    geometry_msgs::msg::TransformStamped transform_stamped_footprint;
+    geometry_msgs::msg::TransformStamped transform_stamped_base_link;
 
     while (this->get_clock()->now() < end_time)
     {
         try
         {
-            transform_stamped = tf_buffer_->lookupTransform("map", "base_footprint", tf2::TimePointZero);
+            transform_stamped_footprint = tf_buffer_->lookupTransform("map", "base_footprint", tf2::TimePointZero);
             break;
         }
         catch (const tf2::TransformException &ex)
@@ -386,22 +456,53 @@ geometry_msgs::msg::Pose get_start_pose()
         }
     }
 
-    if (transform_stamped.header.stamp == rclcpp::Time(0))
+    if (transform_stamped_footprint.header.stamp == rclcpp::Time(0))
     {
         RCLCPP_INFO(this->get_logger(), "Transform is None");
         return geometry_msgs::msg::Pose();
     }
 
     geometry_msgs::msg::Pose start_pose;
-    start_pose.position.x = transform_stamped.transform.translation.x;
-    start_pose.position.y = transform_stamped.transform.translation.y;
-    start_pose.position.z = transform_stamped.transform.translation.z;
-    start_pose.orientation.x = transform_stamped.transform.rotation.x;
-    start_pose.orientation.y = transform_stamped.transform.rotation.y;
-    start_pose.orientation.z = transform_stamped.transform.rotation.z;
-    start_pose.orientation.w = transform_stamped.transform.rotation.w;
+    start_pose.position.x = transform_stamped_footprint.transform.translation.x;
+    start_pose.position.y = transform_stamped_footprint.transform.translation.y;
+    start_pose.position.z = transform_stamped_footprint.transform.translation.z;
+    start_pose.orientation.x = transform_stamped_footprint.transform.rotation.x;
+    start_pose.orientation.y = transform_stamped_footprint.transform.rotation.y;
+    start_pose.orientation.z = transform_stamped_footprint.transform.rotation.z;
+    start_pose.orientation.w = transform_stamped_footprint.transform.rotation.w;
 
     fill_nodes_at_pose(start_pose);
+
+
+    while (this->get_clock()->now() < end_time)
+    {
+        try
+        {
+            transform_stamped_base_link = tf_buffer_->lookupTransform("map", "base_link", tf2::TimePointZero);
+            break;
+        }
+        catch (const tf2::TransformException &ex)
+        {
+            RCLCPP_INFO(this->get_logger(), "Waiting for transform map to base_footprint: %s", ex.what());
+        }
+    }
+
+    if (transform_stamped_base_link.header.stamp == rclcpp::Time(0))
+    {
+        RCLCPP_INFO(this->get_logger(), "Transform is None");
+        return geometry_msgs::msg::Pose();
+    }
+
+    geometry_msgs::msg::Pose start_center_pose;
+    start_center_pose.position.x = transform_stamped_base_link.transform.translation.x;
+    start_center_pose.position.y = transform_stamped_base_link.transform.translation.y;
+    start_center_pose.position.z = transform_stamped_base_link.transform.translation.z;
+    start_center_pose.orientation.x = transform_stamped_base_link.transform.rotation.x;
+    start_center_pose.orientation.y = transform_stamped_base_link.transform.rotation.y;
+    start_center_pose.orientation.z = transform_stamped_base_link.transform.rotation.z;
+    start_center_pose.orientation.w = transform_stamped_base_link.transform.rotation.w;
+
+    delete_nodes_at_pose(start_center_pose);
 
     //start_pose.position.z = start_pose.position.z + 0.15; // The base of the robot is 0.15 m above the ground to match with the scan
 
@@ -526,12 +627,12 @@ void pose_callback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPt
 
 
     void visualizeTree(const octomap::OcTree& tree, std::vector<octomap::OcTreeKey>& collision_nodes) {
-        octomap_msgs::msg::Octomap octomap_msg;
-        if (octomap_msgs::fullMapToMsg(tree, octomap_msg)) {
-            octomap_msg.header.frame_id = "map";
-            octomap_msg.header.stamp = this->now();
-            this->octomap_pub_->publish(octomap_msg);
-        }
+        // octomap_msgs::msg::Octomap octomap_msg;
+        // if (octomap_msgs::fullMapToMsg(tree, octomap_msg)) {
+        //     octomap_msg.header.frame_id = "map";
+        //     octomap_msg.header.stamp = this->now();
+        //     this->octomap_pub_->publish(octomap_msg);
+        // }
 
         auto marker = octomap_utils::octomapToMarkerArray(tree, collision_nodes);
 
@@ -606,13 +707,72 @@ private:
         }
     }
 
+    void find_frontier(){
+        RCLCPP_INFO(this->get_logger(), "Find frontier to explore");
+
+    auto tree = this->octree_;
+
+    const std::vector<std::vector<int>> OCTREE_NEIGHBORS_local = {
+        {-1, -1, -1}, {-1, -1, 1}, {-1, 1, -1}, {-1, 1, 1},
+        {1, -1, -1},  {1, -1, 1},  {1, 1, -1},  {1, 1, 1}
+        };
+
+    std::vector<octomap::point3d> frontiers;
+    auto start_pose = get_start_pose();
+    octomap::point3d start_point3d(start_pose.position.x, start_pose.position.y, start_pose.position.z);
+    for (auto it = octree_->begin_leafs(), end = octree_->end_leafs(); it != end; ++it) {
+        if (octree_->isNodeOccupied(*it)) {
+                continue; // Skip occupied cells
+            }
+
+            bool is_frontier = false;
+            octomap::point3d coord = it.getCoordinate();
+            octomap::OcTreeKey poss_frontier_key = it.getKey();
+            double min_distance = 2.0;
+            double max_distance = 3.5;
+
+            // Check if the cell is within the max distance
+            double distance = coord.distance(start_point3d);
+            if (distance > max_distance || distance < min_distance) {
+                continue;
+            }
+
+            // Check neighbors
+            for (auto &d : OCTREE_NEIGHBORS_local) {
+                auto neigbor_key = navigation::AstarPlanner::expand(poss_frontier_key, d);
+                octomap::OcTreeNode* neighbor_node = octree_->search(neigbor_key);
+                        if (neighbor_node == nullptr) {
+                            is_frontier = true;
+                            break;
+                        }
+            }
+            if (is_frontier) {
+                // Check for sufficient free space around the frontier
+                // if (hasSufficientFreeSpace(octree, coord, robot_size)) {
+                frontiers.push_back(coord);
+                break;
+            }
+        }
+
+        if (!frontiers.empty()) {
+            octomap::point3d closest_frontier = frontiers.front(); // Assuming you want the first frontier for now
+            geometry_msgs::msg::Pose frontier_pose;
+            frontier_pose.position.x = closest_frontier.x();
+            frontier_pose.position.y = closest_frontier.y();
+            frontier_pose.position.z = closest_frontier.z();
+            frontier_pose.orientation.w = 1.0;
+
+            update_pose_goal_pub_->publish(frontier_pose);
+        }
+    }
+
     void exploration_service_callback(const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
                                     std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
-        RCLCPP_INFO(this->get_logger(), "Received request to plan path");
+        RCLCPP_INFO(this->get_logger(), "Received request to explore");
         try {
-            plan_path();
+            find_frontier();
             response->success = true;
-            response->message = "Path planning completed successfully.";
+            response->message = "No more frontiers.";
         } catch (const std::exception &e) {
             response->success = false;
             response->message = e.what();
@@ -635,17 +795,18 @@ private:
         octomap::point3d pos_cmd(0.0, 0.0, 0.0);
 
         // Planer initialisieren
-        double safe_obstacle_distance = .0;
-        double euclidean_distance_cutoff = 2.0;
-        // double planning_tree_resolution = 0.1;
-        double planning_tree_resolution = this->octree_->getResolution();
-        double distance_penalty = 1.0;
-        double greedy_penalty = 1.;
-        double min_altitude = -100.0;
-        double max_altitude = 100.0;
-        double planning_timeout = 50000.0;  // 1 Sekunde Timeout
-        double max_waypoint_distance = .5;
-        bool unknown_is_occupied = false;
+        // double safe_obstacle_distance = .0;
+        // double euclidean_distance_cutoff = 2.0;
+        // // double planning_tree_resolution = 0.1;
+        // double planning_tree_resolution = this->octree_->getResolution();
+        // double distance_penalty = 1.0;
+        // double greedy_penalty = 1.;
+        // double min_altitude = -100.0;
+        // double max_altitude = 100.0;
+        // double planning_timeout = 50000.0;  // 1 Sekunde Timeout
+        // double max_waypoint_distance = .5;
+        // bool unknown_is_occupied = false;
+
         //this->octree_->setOccupancyThres(0.8);
 
         // NOTE: Helper for x and y already declared
@@ -670,8 +831,8 @@ private:
         // RCLCPP_INFO_STREAM(this->get_logger(), "OctoMap-Dimension-Metric; Min: " << min_x << " " << min_y << " " << min_z << " ; Max: " << max_x << " " << max_y << " " << max_z);
 
 
-        navigation::AstarPlanner planner(safe_obstacle_distance, euclidean_distance_cutoff, planning_tree_resolution, distance_penalty, greedy_penalty,
-                                        min_altitude, max_altitude, planning_timeout, max_waypoint_distance, unknown_is_occupied);
+        // navigation::AstarPlanner planner(safe_obstacle_distance, euclidean_distance_cutoff, planning_tree_resolution, distance_penalty, greedy_penalty,
+        //                                 min_altitude, max_altitude, planning_timeout, max_waypoint_distance, unknown_is_occupied);
 
         auto start_find_path = std::chrono::high_resolution_clock::now();
         // Pfad finden
